@@ -1,0 +1,196 @@
+use role ACCOUNTADMIN;
+use warehouse sm_assignment_1_wh;
+
+create database sm_assignment_1_db;
+use sm_assignment_1_db;
+
+use schema public;
+
+create or replace table shopping_history (
+  product varchar not null,
+  quantity integer not null,
+  unit_price integer not null
+);
+
+insert into shopping_history values
+('milk', 3, 10),
+('bread', 7, 3),
+('bread', 5, 2);
+
+select * from shopping_history;
+
+-- TASK-1 ----------------------------------------------------------------------------------------------------------------------------------
+select x.product, sum(x.total_pr) as total_price from (select product, (quantity * unit_price) as total_pr from shopping_history) as x
+group by product 
+order by 1 desc; 
+
+
+-- Task-2 ------------------------------------------------------------------------------------------------------------------------------------
+
+create table phones(
+  name varchar(30) not null unique,
+  phone_number integer not null unique
+);
+
+create or replace table calls ( 
+  id integer not null,
+  caller integer not null,
+  callee integer not null,
+  duration integer not null,
+  unique (id)
+);
+
+insert into phones values 
+('Jack', 1234),
+('Lena', 3333),
+('Mark', 9999),
+('Anna', 7582);
+
+insert into calls values
+(25, 1234, 7582, 8),
+(7, 9999, 7582, 1),
+(18, 9999, 3333, 4),
+(2, 7582, 3333, 3),
+(3, 3333, 1234, 1),
+(21, 3333, 1234, 1);
+
+insert into phones values 
+('John', 6356),
+('Addison', 4315),
+('Kate', 8003),
+('Ginny', 9831);
+
+insert into calls values
+(65, 8003, 9831, 7),
+(100, 9831, 8003, 3),
+(145, 4315, 9831, 18);
+
+select * from calls;
+select * from phones;
+
+-- query
+select x.name, 
+case
+     when total_dur is null then c_duration
+     else total_dur
+     end as total_duration
+from
+
+(with 
+  c as (select caller, sum(duration) as c_duration from calls group by caller),
+  c1 as (select callee, sum(duration) as c1_duration from calls group by callee)
+select p.name, c.caller, c.c_duration,c1.c1_duration, (c.c_duration + c1.c1_duration) as total_dur
+from c left outer join c1
+on c.caller = c1.callee
+inner join phones p
+on c.caller = p.phone_number) x
+
+where total_duration >= 10
+order by 1
+;
+
+
+--Task-3 ----------------------------------------------------------------------------------------------------------------------------------
+
+create or replace table transactions (
+  amount integer not null,
+  date date not null
+);
+
+insert into transactions values 
+(1000, '2020-01-06'),
+(-10, '2020-01-14'),
+(-75, '2020-01-20'),
+(-5, '2020-01-25'),
+(-4, '2020-01-29'),
+(2000, '2020-03-10'),
+(-75, '2020-03-12'),
+(-20, '2020-03-15'),
+(40, '2020-03-15'),
+(-50, '2020-03-17'),
+(200, '2020-10-10'),
+(-200, '2020-10-10');
+
+select * from transactions;
+
+-- query
+with target_table as
+    (with cte as
+        (select extract(month from date) as month, 
+        count(case when amount<0 then 1 end) as no_of_txn_by_credit,
+        sum(case when amount > 0 then amount else 0 end) as incoming_transfer,
+        sum(case when amount < 0 then amount else 0 end) as credit_card_txn
+         from transactions
+         group by month)
+    select month,
+    case when no_of_txn_by_credit >= 3 and credit_card_txn <= -100 then (incoming_transfer+credit_card_txn)
+         else (incoming_transfer+credit_card_txn-5)
+    end as total
+    from cte)
+select (sum(total) - (12-count(month))*5) as balance from target_table;
+
+create or replace table transactions1 (
+  amount integer not null,
+  date date not null
+);
+
+insert into transactions1 values 
+(1, '2020-06-29'),
+(35, '2020-02-20'),
+(-50, '2020-02-03'),
+(-1, '2020-02-26'),
+(-200, '2020-08-01'),
+(-44, '2020-02-07'),
+(-5, '2020-02-25'),
+(1, '2020-06-29'),
+(1, '2020-06-29'),
+(-100, '2020-12-29'),
+(-100, '2020-12-30'),
+(-100, '2020-12-31');
+
+-- query
+with target_table as
+    (with cte as
+        (select extract(month from date) as month, 
+        count(case when amount<0 then 1 end) as no_of_txn_by_credit,
+        sum(case when amount > 0 then amount else 0 end) as incoming_transfer,
+        sum(case when amount < 0 then amount else 0 end) as credit_card_txn
+         from transactions1
+         group by month)
+    select month,
+    case when no_of_txn_by_credit >= 3 and credit_card_txn <= -100 then (incoming_transfer+credit_card_txn)
+         else (incoming_transfer+credit_card_txn-5)
+    end as total
+    from cte)
+select (sum(total) - (12-count(month))*5) as balance from target_table;
+
+create or replace table transactions2 (
+  amount integer not null,
+  date date not null
+);
+
+insert into transactions2 values 
+(6000, '2020-04-03'),
+(5000, '2020-04-02'),
+(4000, '2020-04-01'),
+(3000, '2020-03-01'),
+(2000, '2020-02-01'),
+(1000, '2020-01-01');
+
+-- query
+with target_table as
+    (with cte as
+        (select extract(month from date) as month, 
+        count(case when amount<0 then 1 end) as no_of_txn_by_credit,
+        sum(case when amount > 0 then amount else 0 end) as incoming_transfer,
+        sum(case when amount < 0 then amount else 0 end) as credit_card_txn
+         from transactions2
+         group by month)
+    select month,
+    case when no_of_txn_by_credit >= 3 and credit_card_txn <= -100 then (incoming_transfer+credit_card_txn)
+         else (incoming_transfer+credit_card_txn-5)
+    end as total
+    from cte)
+select (sum(total) - (12-count(month))*5) as balance from target_table;
+
+-- ----------------------------------------------------------------------------------------------------------------------------------------
