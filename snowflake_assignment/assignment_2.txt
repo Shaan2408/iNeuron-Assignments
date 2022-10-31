@@ -1,0 +1,127 @@
+----- 🎯𝗔𝗻𝗮𝗹𝘆𝘇𝗶𝗻𝗴 𝗥𝗼𝗮𝗱 𝗦𝗮𝗳𝗲𝘁𝘆 𝗶𝗻 𝘁𝗵𝗲 𝗨𝗞 ------
+
+create database road_safety_db;
+use road_safety_db;
+
+----------------------------------------------------------------------------------------------
+-- table creation
+CREATE OR TABLE accident(
+	accident_index VARCHAR(13),
+    accident_severity INT
+);
+
+CREATE OR REPLACE TABLE vehicles(
+	accident_index VARCHAR(13),
+    vehicle_type VARCHAR(50)
+);
+
+CREATE OR REPLACE TABLE vehicle_types(
+	vehicle_code INT,
+    vehicle_type VARCHAR(60)
+);
+
+-- internal stage creation
+create or replace stage my_stg_accident
+file_format = CSV_FORMAT;
+create or replace stage my_stg_vehicles
+file_format = CSV_FORMAT;
+create or replace stage my_stg_vehicletypes
+file_format = CSV_FORMAT;
+
+-- putting the files into stage by using snowsql put command
+-- loading the files into target table from internal stage
+copy into accident(accident_index, accident_severity) from (select t.$1,t.$7 from @my_stg_accident t)
+   file_format = CSV_FORMAT;
+copy into vehicles(accident_index, vehicle_type) from (select t.$1,t.$3 from @my_stg_vehicles t)
+   file_format = CSV_FORMAT;
+copy into vehicle_types from @my_stg_vehicletypes 
+   file_format = CSV_FORMAT;
+   
+select * from accident;
+select * from vehicles;
+select * from vehicle_types;
+
+-- 1. Evaluate the median severity value of accidents caused by various Motorcycles.
+with cte as
+(SELECT vt.vehicle_type, a.accident_severity
+FROM accident a
+JOIN vehicles v ON a.accident_index = v.accident_index
+JOIN vehicle_types vt ON v.vehicle_type = vt.vehicle_code
+where vt.vehicle_type like '%torcycle%'
+order by a.accident_severity)
+select vehicle_type, median(accident_severity) as median_severity from cte group by vehicle_type;
+
+-- 2. Evaluate Accident Severity and Total Accidents per Vehicle Type
+select vt.vehicle_type, 
+a.accident_severity, count(vt.vehicle_type) over(partition by vt.vehicle_type) as total_accidents from accident a
+join vehicles v on a.accident_index = v.accident_index
+join vehicle_types vt on vt.vehicle_code = v.vehicle_type
+order by 1;
+
+-- 3. Calculate the Average Severity by vehicle type.
+select vt.vehicle_type, avg(a.accident_severity) as avg_severity from accident a
+join vehicles v on a.accident_index = v.accident_index
+join vehicle_types vt on vt.vehicle_code = v.vehicle_type
+group by 1
+order by 2;
+
+-- 4. Calculate the Average Severity and Total Accidents by Motorcycle
+select vt.vehicle_type, avg(a.accident_severity) as avg_severity, count(vt.vehicle_type) as total_accidents from accident a
+join vehicles v on a.accident_index = v.accident_index
+join vehicle_types vt on vt.vehicle_code = v.vehicle_type
+where vt.vehicle_type like '%torcycle%'
+group by 1
+order by 2, 3;
+
+
+-------------------------🎯𝗔𝗻𝗮𝗹𝘆𝘇𝗶𝗻𝗴 𝘁𝗵𝗲 𝗪𝗼𝗿𝗹𝗱 𝗣𝗼𝗽𝘂𝗹𝗮𝘁𝗶𝗼𝗻 ----------------------------
+
+use warehouse compute_wh;
+
+create database master_project;
+use master_project;
+
+use schema public;
+
+create or replace table country_tb (
+  country varchar not null,
+  land_area number(20,2) not null,
+  population int not null,
+  growth_rate number(10,2) not null
+);
+
+truncate table country_tb;
+select * from country_tb;
+
+-- highest populated country - china
+select country, population from country_tb where population = 
+  (select max(population) as highest_population from country_tb); 
+
+-- country has the least number of people - Pitcairn Islands
+select country, population from country_tb where population = 
+  (select min(population) as lowest_population from country_tb where population <> 0); 
+  
+-- country is witnessing the highest population growth -- zimbabwe
+select country, growth_rate from country_tb where growth_rate =
+(select max(growth_rate) from country_tb);
+
+-- the most densely populated country in the world -- macau
+with cte as
+    (select *, (population/land_area) as population_density from country_tb)
+select country, population_density from cte where population_density =
+    (select max(population_density) from cte);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
